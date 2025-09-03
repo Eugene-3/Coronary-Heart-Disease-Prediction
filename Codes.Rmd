@@ -1,0 +1,2339 @@
+
+```{r}
+# READING OF DATASET INTO R
+
+framingham <- read.csv("framingham.csv") 
+
+```
+
+```{r}
+# DATASET INSPECTION
+
+dim(framingham) # The dataset has 4238 observations and 16 variables. Of these variables, 15 are                    independent and 1 is dependent
+
+names(framingham) # Identifying the 16 variable names of the dataset.
+
+
+str(framingham) # Observing the variable types of the dataset. The independent variables with names                   male, education, currentSmoker, BPMeds, prevalentStroke, prevalentHyp, and                         diabetes are categorical and should be converted from integer as shown from the                    structure.
+
+cat_var <- c(1,3,4,6,7,8,9)
+framingham[,cat_var] <- lapply(framingham[,cat_var],factor) # Conversion of categorical variables                                                               to factor.
+
+str(framingham) # Checking structure to confirm changes
+
+head(framingham) # Observing the first six observations of the dataset.
+
+summary(framingham) # It can be observed that seven variables have NA values. These variables are                        education, cigsPerDay, BPMeds, totChol, BMI, heartRate and glucose which have                       105, 29, 53, 50, 19, 1 and 388 NA's respectively.
+
+# Calculating the standard deviation of the numerical variables.
+sd(framingham$age)
+sd(framingham$cigsPerDay, na.rm = TRUE)
+sd(framingham$totChol, na.rm = TRUE)
+sd(framingham$sysBP)
+sd(framingham$diaBP)
+sd(framingham$BMI, na.rm = TRUE)
+sd(framingham$heartRate, na.rm = TRUE)
+sd(framingham$glucose, na.rm = TRUE)
+
+missing_values <- sum(is.na(framingham)) # There is a total of 645 NA's in this dataset
+
+
+(colMeans(is.na(framingham)))*100 # The NA percentages of education, cigsPerDay, BPMeds, totChol,                                      BMI, heartRate and glucose are 2.48%, 0.68%, 1.25%, 1.18%,                                         0.44%, 0.02% and 9.16% respectively.
+
+#install.packages("ggmice")
+library(ggmice)
+plot_pattern(framingham, rotate = TRUE) # Observing missing values pattern. It can be seen that                                              3,656 observations have no missing values and 582                                                  observations have missing values in at most three                                                  variables.
+
+
+```
+
+
+
+```{r}
+# CLEANING AND PREPARATION OF DATASET
+
+sum(duplicated(framingham)) # Checking for duplicated observations. Each observation turns out to be unique.
+
+# MissForest algorithm is used for the imputation of missing values in the dataset
+
+library(missForest)
+set.seed(80) # To provide constant results with multiple runs.
+framingham_imp <- missForest(framingham, verbose = TRUE) # MissForest algorithm implemented. It takes 2 minutes for the imputation to be complete.
+
+framingham_imp$OOBerror # Estimated imputation error. Estimated continuous variables error (NRMSE) was 0.22694439 and estimated categorical variables error (PFC) was 0.08984859
+
+framingham.clean <- framingham_imp$ximp # Dataset obtained after imputation.
+
+sum(is.na(framingham.clean)) # Confirmation of complete imputation. No missing values in the dataset.
+
+```
+
+```{r}
+# INSPECTION OF IMPUTED DATASET
+
+str(framingham.clean) # It can be observed that after imputation the variables cigsPerDay, totChol and glucose have been converted to continuous variables instead of discrete variables.
+
+dis_var <- c(5,10,15)
+framingham.clean[,dis_var] <- lapply(framingham.clean[,dis_var],as.integer) # Converting the discrete variables to integers after imputation.
+
+framingham.clean$BMI <- round(framingham.clean$BMI, digits = 4) # Converting BMI values to two decimal places as in the original dataset
+
+
+```
+
+```{r}
+# DATASET EXPLORATION - DETECTION OF OUTLIERS
+
+# Normalisation of numerical variables to improve boxplot visualisation
+
+# A normalisation function is generated
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+} 
+
+num_var <- c(2,5,10,11,12,13,14,15) # Grouping of numerical variables
+
+num_variables <- as.data.frame(lapply(framingham.clean[num_var], normalize)) # Numerical variables normalised.
+
+boxplot(num_variables, las = 2, main = "Outlier Detection", col = 'deepskyblue3')
+# From the boxplot, age is the only numerical variable without outliers. The outliers of the dataset should be removed as part of the data cleaning process
+
+length(boxplot.stats(framingham.clean$glucose)$out) # Glucose had 227 outliers which is the most in the dataset
+```
+
+```{r}
+# REMOVAL OF OUTLIERS FROM DATASET
+
+quartiles <- quantile(framingham.clean$cigsPerDay, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham.clean$cigsPerDay)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham.clean <- subset(framingham.clean, framingham.clean$cigsPerDay > Lower & framingham.clean$cigsPerDay < Upper)
+
+
+quartiles <- quantile(framingham.clean$totChol, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham.clean$totChol)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham.clean <- subset(framingham.clean, framingham.clean$totChol > Lower & framingham.clean$totChol < Upper)
+
+
+quartiles <- quantile(framingham.clean$sysBP, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham.clean$sysBP)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham.clean <- subset(framingham.clean, framingham.clean$sysBP > Lower & framingham.clean$sysBP < Upper)
+
+
+quartiles <- quantile(framingham.clean$diaBP, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham.clean$diaBP)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham.clean <- subset(framingham.clean, framingham.clean$diaBP > Lower & framingham.clean$diaBP < Upper)
+
+
+quartiles <- quantile(framingham.clean$BMI, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham.clean$BMI)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham.clean <- subset(framingham.clean, framingham.clean$BMI > Lower & framingham.clean$BMI < Upper)
+
+
+quartiles <- quantile(framingham.clean$heartRate, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham.clean$heartRate)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham.clean <- subset(framingham.clean, framingham.clean$heartRate > Lower & framingham.clean$heartRate < Upper)
+
+
+quartiles <- quantile(framingham.clean$glucose, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham.clean$glucose)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham.clean <- subset(framingham.clean, framingham.clean$glucose > Lower & framingham.clean$glucose < Upper)
+ 
+dim(framingham.clean)
+# The number of observations reduced to 3617 after the removal of outliers
+
+```
+
+```{r}
+# OUTLIERS DETECTION AFTER REMOVAL OF OUTLIERS
+num_variables <- as.data.frame(lapply(framingham.clean[num_var], normalize))
+
+boxplot(num_variables, las = 2, main = "Outlier Detection", col = 'deepskyblue3')
+# From this boxplot, age and cigsPerDay are without outliers. 
+
+boxplot.stats(framingham.clean$age)$out
+boxplot.stats(framingham.clean$cigsPerDay)$out
+boxplot.stats(framingham.clean$totChol)$out
+boxplot.stats(framingham.clean$sysBP)$out
+boxplot.stats(framingham.clean$diaBP)$out
+boxplot.stats(framingham.clean$BMI)$out
+boxplot.stats(framingham.clean$heartRate)$out
+boxplot.stats(framingham.clean$glucose)$out
+
+# All the outliers correspond to actual values and hence will be maintained and used for the analysis of the project.
+
+```
+
+```{r}
+# DATASET EXPLORATION - NORMALITY TEST FOR NUMERICAL VARIABLES
+
+# Plotting of numerical variables to observe its distribution
+
+par(mfrow = c(2,4))
+hist(framingham.clean$age, main = 'Age Plot', xlab = "Age", col = 'deepskyblue3')
+hist(framingham.clean$cigsPerDay, main = 'CigsPerDay Plot', xlab = "CigsPerDay", col = 'deepskyblue3')
+hist(framingham.clean$totChol, main = 'TotChol Plot', xlab = "TotChol", col = 'deepskyblue3')
+hist(framingham.clean$sysBP, main = 'SysBP Plot', xlab = "SysBP", col = 'deepskyblue3')
+hist(framingham.clean$diaBP, main = 'DiaBP Plot', xlab = "DiaBP", col = 'deepskyblue3')
+hist(framingham.clean$BMI, main = 'BMI Plot', xlab = "BMI", col = 'deepskyblue3')
+hist(framingham.clean$heartRate, main = 'HeartRate Plot', xlab = "HeartRate", col = 'deepskyblue3')
+hist(framingham.clean$glucose, main = 'Glucose Plot', xlab = "Glucose", col = 'deepskyblue3')
+
+# An observation of the plots indicate that all the variables have a normal distribution except age and CigsPerDay. The shapiro wilk's test is used to confirm this assertion.
+```
+
+
+```{r}
+# DATASET EXPLORATION - NORMALITY TEST FOR NUMERICAL VARIABLES
+
+# Normality of the numerical variables are tested by the usage of shapiro wilk's test
+
+num_var <- c(2,5,10,11,12,13,14,15)
+lapply(framingham.clean[,num_var],shapiro.test)
+
+# The p-values for each numerical variable is less than 0.05 indicating all the numerical variables are not normally distributed which is not an accurate assertion. The Q-Q plot is then utilised.
+```
+
+
+```{r}
+# DATASET EXPLORATION - NORMALITY TEST FOR NUMERICAL VARIABLES
+
+# Normality test for numerical variables using Q-Q plot.
+
+par(mfrow = c(2,4))
+qqnorm(framingham.clean$age, ylab = 'age', main = 'Age Plot')
+qqline(framingham.clean$age)
+qqnorm(framingham.clean$cigsPerDay, ylab = 'cigsPerDay', main = 'CigsPerDay Plot')
+qqline(framingham.clean$cigsPerDay)
+qqnorm(framingham.clean$totChol, ylab = 'totChol', main = 'TotChol Plot')
+qqline(framingham.clean$totChol)
+qqnorm(framingham.clean$sysBP, ylab = 'sysBP', main = 'SysBP Plot')
+qqline(framingham.clean$sysBP)
+qqnorm(framingham.clean$diaBP, ylab = 'diaBP', main = 'DiaBP Plot')
+qqline(framingham.clean$diaBP)
+qqnorm(framingham.clean$BMI, ylab = 'BMI', main = 'BMI Plot')
+qqline(framingham.clean$BMI)
+qqnorm(framingham.clean$heartRate, ylab = 'heartRate', main = 'HeartRate Plot')
+qqline(framingham.clean$heartRate)
+qqnorm(framingham.clean$glucose, ylab = 'glucose', main = 'Glucose Plot')
+qqline(framingham.clean$glucose)
+
+# It can be concluded from the plots that all the variables have a normal distribution except age and cigsPerDay because these two variables have their points deviating from the reference diagonal line.
+```
+
+```{r}
+# VARIABLES EXPLORATION
+
+library(ggplot2)
+qplot(x = diaBP,
+      y = sysBP,
+      data = framingham.clean,
+      colour = prevalentHyp
+)
+
+# It can be observed from the graph that observations above coordinates of values (90,140)mmHg are predominantly at a higher risk of prevalent hypertension while observations below that mark are generally not at risk.
+```
+
+```{r}
+# MULTICOLLINEARITY AND CORRELATION
+
+# In order to detect multicollinearity and which of the independent numerical variables exhibit a strong correlation with the response variable, a correlation plot is utilised
+
+
+framingham.clean[,cat_var] <- lapply(framingham.clean[,cat_var],as.integer) # Converting categorical variables to numerical for correlation plot
+
+library(corrplot)
+correlation <- cor(framingham.clean, method = 'spearman')
+corrplot(correlation, number.cex = .55, method = "color",col = COL2('RdYlBu',200), type = "full", tl.cex=0.8,tl.col = "black", addCoef.col = "black")
+
+# It can be observed from the plot that age has the strongest association with the dependent variable TenYearCHD. There is also a high correlation between the independent variables cigsPerDay and currentSmoker.
+
+```
+
+
+```{r}
+# VARIATION INFLATION FACTOR (VIF)
+
+# Since the correlation between cigsPerDay and currentSmoker is very high followed by sysBP and diaBP it is necessary to check for the presence of multicollinearity using the Variance Inflation Factor (VIF).   
+
+x_reg <- lm(TenYearCHD~.,data = framingham.clean)
+
+library(car)
+library(carData)
+vif(x_reg)
+
+# As a general rule, a VIF value greater than 5 indicates a high multicollinearity which requires the removal of the variable from the dataset. All the variables including cigsPerDay, currentSmoker, sysBP and diaBP have a VIF lower than 5 indicating the absence of multicollinearity in this dataset
+
+```
+
+
+```{r}
+# DATASET SPLITTING.
+
+# Conversion of categorical variables to integers
+framingham.clean[,cat_var] <- lapply(framingham.clean[,cat_var],as.integer)
+
+# The dataset is split into training and testing set
+
+#install.packages('caTools')
+library(caTools)
+set.seed(80)
+split = sample.split(framingham.clean$TenYearCHD, SplitRatio = 0.7)
+train_framingham = subset(framingham.clean, split == TRUE)
+test_framingham = subset(framingham.clean, split == FALSE)
+
+# The splitting of the dataset between training and testing is in the ratio 70:30
+
+dim(train_framingham) # The training set has 2532 observations and 16 variables
+
+dim(test_framingham) # The testing set has 1085 observations and 16 variables
+
+# CLASS IMBALNCE INSPECTION
+
+# The training set needs to be balanced to ensure the high performance of machine learning models.
+
+table(train_framingham$TenYearCHD) # 2195 have no risk and 337 have a high risk of CHD indicating class imbalance.
+
+barplot(table(train_framingham$TenYearCHD), main = "Class Imbalance Graph.", col = 'deepskyblue3')
+
+# Synthetic Minority Over-sampling Technique (SMOTE) will be used to increase the instances of the minority class.
+
+```
+
+```{r}
+# BALANCING THE TRAINING SET.
+
+library(smotefamily)
+balanced_traindata <- SMOTE(train_framingham[-16],  # independent variables
+              train_framingham$TenYearCHD,  # class labels
+              K = 3, dup_size = 5)  # function parameters
+
+str(balanced_traindata)
+library(dplyr)
+train_framingham <- bind_cols(balanced_traindata$data[-16], balanced_traindata$data[16]) # The number of training observations added to 4217 from 2532 after SMOTE application.
+
+str(train_framingham) # There has been a change of the dependent variable name from TenYearCHD to class after SMOTE application.
+
+names(train_framingham)[16]<- "TenYearCHD" # Setting the name of label to its original name
+
+table(train_framingham$TenYearCHD) # The minority class has increased from 337 to 2022
+
+barplot(table(train_framingham$TenYearCHD), main = "Class balance Graph.", col = 'deepskyblue3')
+
+```
+
+
+```{r}
+# IMPORTANT VARIABLE SELECTION
+
+# The Boruta algorithm is used to select the most important variables.
+
+# Dependent variables should be factors.
+
+train_framingham$TenYearCHD <- as.factor(train_framingham$TenYearCHD)
+test_framingham$TenYearCHD <- as.factor(test_framingham$TenYearCHD)
+
+# Boruta Algorithm implementation
+library("Boruta")
+set.seed(20)
+Boruta.framingham <- Boruta(TenYearCHD ~ ., data = train_framingham, doTrace = 2, ntree = 500)
+
+plot(Boruta.framingham, las = 2, cex.axis = .81, xlab = "") # Plotting important attributes
+# The maximum shadow attribute has a Z score which is less than all the attributes indicating that all the attributes all important for analysis.
+
+attStats(Boruta.framingham) # This function indicates the Z score values of the variables. The decision column of each variable is stated as confirmed showing that they are all necessary for analysis.
+
+```
+
+
+```{r}
+# NORMALISATION OF DATASET.
+
+# To improve the performance of the models, the dataset should be normalised
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+# Normalising training data
+train_framingham_norm <- as.data.frame(lapply(train_framingham[1:15], normalize))
+
+
+# Normalising test data
+test_framingham_norm <- as.data.frame(lapply(test_framingham[1:15], normalize))
+test_framingham_norm$prevalentStroke <- 0 # This column was given NaN because it had one value
+
+```
+
+```{r}
+# CLASSIFICATION BY KNN
+
+library(class)
+
+# For the determination of k in the kNN algorithm, it is preferrable to take the square root of the number of observations of the training set. In this case 64.94. K values between 61 and 75 are iterated to find the K with the highest accuracy  
+
+i = 61
+k_optm=1
+for (i in 61:75){set.seed(71)
+  knn_mod <- knn(train = train_framingham_norm,test = test_framingham_norm, cl = train_framingham$TenYearCHD, k = i)
+  k_optm[i] <- 100 * sum(test_framingham$TenYearCHD == knn_mod)/NROW(test_framingham$TenYearCHD)
+  k=i
+  cat(k, '=',k_optm[i],'\n') #For printing accuracy percentage
+}
+
+# The K values of 62, 63 and 65 provided the highest accuracy. The K value of 65 was chosen for this work
+
+set.seed(71)
+knn_model <- knn(train = train_framingham_norm,test = test_framingham_norm, cl = train_framingham$TenYearCHD, k=65, prob = TRUE) # KNN Model
+
+library(caret)
+confusionMatrix(table(predicted = knn_model, actual = test_framingham$TenYearCHD)) # An accuracy of 69.77% was obtained
+
+library(pROC)
+roc(test_framingham$TenYearCHD, attributes(knn_model)$prob) # The area under the curve (AUC) is 0.5794
+
+# Plotting ROC curve.
+par(pty = 's')
+plot(roc(test_framingham$TenYearCHD, attributes(knn_model)$prob), main = "ROC curve for KNN", legacy.axes = TRUE, xlab = 'False positive rate', ylab = 'True positive rate')  
+
+
+
+```
+
+```{r}
+# TRAINING A RANDOM FOREST MODEL 
+
+# Train and tune the random forest (rf) algorithm on the training data.
+library(randomForest)
+
+# Find the optimal value of mtry.
+set.seed(71) 
+mtry <- tuneRF(train_framingham[-16],train_framingham$TenYearCHD, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+
+print(mtry)
+print(best.m)
+
+#Apply random forest (rf) with the optimal value of mtry.
+set.seed(71)
+rf <-randomForest(TenYearCHD~.,data=train_framingham, mtry=best.m, importance=TRUE,ntree=500)
+print(rf)
+plot(rf)
+ 
+# The black curve represents the OOB error, the red curve for class 0 (no CHD) and the green curve class 1 (CHD)
+
+```
+
+```{r}
+# TESTING THE RANDOM FOREST MODEL
+
+# Predicting the Test set results.
+pred_rf = predict(rf, newdata = test_framingham)
+
+
+library(caret)
+confusionMatrix(table(predicted = pred_rf, actual = test_framingham$TenYearCHD)) # Provided an accuracy of 85.25%
+
+
+
+pred_rf_p=predict(rf,newdata = test_framingham,type = "prob")
+
+
+library(pROC)
+roc(test_framingham$TenYearCHD, pred_rf_p[,2]) # The area under the curve is 0.6859
+
+# Plotting of ROC curve
+par(pty = 's')
+plot(roc(test_framingham$TenYearCHD, pred_rf_p[,2]), main = "ROC curve for Random Forest", legacy.axes = TRUE, xlab = 'False positive rate', ylab = 'True positive rate') 
+
+
+
+```
+
+```{r}
+# LOGISTIC REGRESSION CLASSIFICATION
+
+# Building the logistic regression model
+log_model <- glm(TenYearCHD~.,data = train_framingham,family = "binomial")
+summary(log_model)
+
+# Testing the model.
+pred_log <- predict(log_model,test_framingham,type = 'response') # provision of predictions in probabilities
+pred_log_class <- ifelse(pred_log >= 0.5,1,0) # Conversion from probabilities to class 0 and class 1 with threshold of 0.5
+
+library(caret)
+confusionMatrix(table(predicted = pred_log_class, actual = test_framingham$TenYearCHD)) # Provided an accuracy of 68.76%
+
+library(pROC)
+roc(test_framingham$TenYearCHD, pred_log) # The area under the curve is 0.7186
+
+# Plotting of ROC curve
+par(pty = 's')
+plot(roc(test_framingham$TenYearCHD, pred_log), main = "ROC curve for Logistic Regression", legacy.axes = TRUE, xlab = 'False positive rate', ylab = 'True positive rate')
+
+
+
+```
+
+```{r}
+# TRAINING DATASET USED TO BUILD MODEL IN DECISION TREE
+
+#install.packages("rpart.plot")
+
+library(rpart)
+library(rpart.plot)
+
+dt <- rpart(TenYearCHD~., data = train_framingham, method = 'class')
+rpart.plot(dt)
+
+```
+
+```{r}
+# TESTING DECISION TREE MODEL
+
+pred_dt <-predict(dt, test_framingham, type = 'class')
+
+#install.packages("caret")
+library("caret")
+confusionMatrix(table(predicted = pred_dt, actual = test_framingham$TenYearCHD)) # Accuracy of 79.17%
+
+pred_dt_p <-predict(dt, test_framingham, type = 'prob') # Probability conversion of predictions
+
+library("pROC")
+roc(test_framingham$TenYearCHD, pred_dt_p[,2]) # The area under the curve (AUC) is 0.6178
+
+# Plotting the ROC curve
+par(pty = 's')
+plot(roc(test_framingham$TenYearCHD, pred_dt_p[,2]), main = "ROC curve for Decision Tree", legacy.axes = TRUE, xlab = 'False positive rate', ylab = 'True positive rate')
+
+
+
+
+```
+
+```{r}
+# NAIVE BAYES CLASSIFICATION
+
+library(e1071)
+
+set.seed(100)
+nb <- naiveBayes(TenYearCHD~., data=train_framingham) # Training the naive bayes model
+
+pred_nb <- predict(nb, newdata = test_framingham) # Testing the trained model
+
+confusionMatrix(table(predicted = pred_nb, actual = test_framingham$TenYearCHD)) # Accuracy of 76.59%
+
+
+pred_nb <- as.numeric(pred_nb)
+roc(test_framingham$TenYearCHD, pred_nb) # The area under the curve (AUC) is 0.6121
+
+# Plotting the ROC curve
+par(pty = 's')
+plot(roc(test_framingham$TenYearCHD, pred_nb), main = "ROC curve for Naive Bayes", legacy.axes = TRUE, xlab = 'False positive rate', ylab = 'True positive rate')
+
+
+
+
+```
+
+```{r}
+# SUPPORT VECTOR MACHINE (SVM) CLASSIFICATION
+
+set.seed(12)
+
+svm_model=svm(TenYearCHD~., data=train_framingham, type = "C-classification", kernel="radial")
+# Training the SVM model
+
+pred_svm <- predict(svm_model, newdata = test_framingham) # Testing the SVM model
+
+confusionMatrix(table(predicted = pred_svm, actual = test_framingham$TenYearCHD))# Accuracy of 75.94%
+
+
+pred_svm <- as.numeric(pred_svm)
+roc(test_framingham$TenYearCHD, pred_svm) # The area under the curve (AUC) is 0.5937
+
+# Plotting the ROC curve
+par(pty = 's')
+plot(roc(test_framingham$TenYearCHD, pred_svm), main = "ROC curve for Support Vector Machine", legacy.axes = TRUE, xlab = 'False positive rate', ylab = 'True positive rate')
+
+
+
+```
+
+
+```{r}
+# COMBINED ROC CURVES FOR THE CLASSIFIERS
+
+par(pty = 's')
+plot(roc(test_framingham$TenYearCHD, attributes(knn_model)$prob), main = "ROC curve for Classifiers", legacy.axes = TRUE, xlab = 'False positive rate', ylab = 'True positive rate', col='red' )
+plot(roc(test_framingham$TenYearCHD, pred_rf_p[,2]), add=TRUE)
+plot(roc(test_framingham$TenYearCHD, pred_log), col= 'deep sky blue',add = TRUE)
+plot(roc(test_framingham$TenYearCHD, pred_dt_p[,2]), col= 'gold', add = TRUE)
+plot(roc(test_framingham$TenYearCHD, pred_nb), col= 'violet' , add = TRUE)
+plot(roc(test_framingham$TenYearCHD, pred_svm), col = 'green', add = TRUE)
+legend("bottomright", legend = c("KNN", "RF", "LR", "DT", "NB", "SVM"), col = c('red', 'black', 'deep sky blue', 'gold', 'violet', 'green'), lwd = 4)
+
+```
+
+
+MISSFOREST IMPUTATION WITH STEPWISE TECHNIQUE USING LOGISTIC REGRESSION
+
+
+```{r}
+# FEATURE SELECTION USING STEPWISE TECHNIQUE
+
+library(MASS)
+stepAIC(log_model)
+# After this implementation, 7 independent variables were selected having the lowest AIC value of 5151
+
+# The selected features were male, age, cigsPerDay, prevalentStroke, totChol, sysBP and glucose.
+
+feat_selec <- c(1,2,5,7,10,11,15,16)
+train_framingham_select <- train_framingham[,feat_selec]
+test_framingham_select <- test_framingham[,feat_selec]
+
+
+```
+
+
+```{r}
+# RANDOM FOREST CLASSIFICATION - TRAINING
+
+# Train and tune the random forest (rf) algorithm on the training data.
+library(randomForest)
+
+# Find the optimal value of mtry.
+set.seed(71) 
+mtry <- tuneRF(train_framingham_select[-8],train_framingham_select$TenYearCHD, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+
+print(mtry)
+print(best.m)
+
+#Apply random forest (rf) with the optimal value of mtry.
+set.seed(71)
+rf <-randomForest(TenYearCHD~.,data=train_framingham_select, mtry=best.m, importance=TRUE,ntree=500)
+print(rf)
+plot(rf)
+
+
+```
+
+```{r}
+# RANDOM FOREST CLASSIFICATION - TESTING
+
+pred_rf = predict(rf, newdata = test_framingham_select)
+
+
+library(caret)
+confusionMatrix(table(predicted = pred_rf, actual = test_framingham_select$TenYearCHD)) # Provided an accuracy of 83.5%
+
+```
+
+```{r}
+# LOGISTIC REGRESSION CLASSIFICATION
+
+# Building the logistic regression model
+log_model <- glm(TenYearCHD~.,data = train_framingham_select,family = "binomial")
+summary(log_model)
+
+# Testing the model.
+pred_log <- predict(log_model,test_framingham_select,type = 'response') # provision of predictions in probabilities
+pred_log_class <- ifelse(pred_log >= 0.5,1,0) # Conversion from probabilities to class 0 and class 1 with threshold of 0.5
+
+library(caret)
+confusionMatrix(table(predicted = pred_log_class, actual = test_framingham_select$TenYearCHD)) # Provided an accuracy of 68.48%
+
+
+```
+
+
+```{r}
+# DECISION TREE CLASSIFICATION - TRAINING
+
+library(rpart)
+library(rpart.plot)
+
+dt <- rpart(TenYearCHD~., data = train_framingham_select, method = 'class')
+rpart.plot(dt)
+
+
+```
+
+
+```{r}
+# DECISION TREE CLASSIFICATION - TESTING
+
+pred_dt <-predict(dt, test_framingham_select, type = 'class')
+
+#install.packages("caret")
+library("caret")
+confusionMatrix(table(predicted = pred_dt, actual = test_framingham_select$TenYearCHD)) # Accuracy of 80.83%
+
+
+```
+
+
+```{r}
+# NAIVE BAYES CLASSIFICATION
+
+library(e1071)
+
+set.seed(100)
+
+nb <- naiveBayes(TenYearCHD~., data=train_framingham_select) #Training the naive bayes model
+
+pred_nb <- predict(nb, newdata = test_framingham_select) #Testing the naive bayes model
+
+confusionMatrix(table(predicted = pred_nb, actual = test_framingham_select$TenYearCHD)) # Accuracy of 78.89%
+
+```
+
+
+```{r}
+
+# SUPPORT VECTOR MACHINE (SVM) CLASSIFICATION
+
+set.seed(12)
+svm_model=svm(TenYearCHD~., data=train_framingham_select, type = "C-classification", kernel="radial")
+# Training the SVM model
+
+pred_svm <- predict(svm_model, newdata = test_framingham_select) # Testing the SVM model
+
+confusionMatrix(table(predicted = pred_svm, actual = test_framingham_select$TenYearCHD))# Accuracy of 77.14%
+
+```
+
+```{r}
+# KNN CLASSIFICATION
+
+feat_selec_knn <- c(1,2,5,7,10,11,15)
+
+# Selecting normalised features for KNN classification
+train_framingham_norm_select <- train_framingham_norm[,feat_selec_knn]
+test_framingham_norm_select <- test_framingham_norm[,feat_selec_knn]
+
+library(class)
+
+# For the determination of k in the kNN algorithm, it is preferrable to take the square root of the number of observations of the training set. In this case 64.94. K values between 61 and 75 are iterated to find the K with the highest accuracy  
+
+i = 61
+k_optm=1
+for (i in 61:75){set.seed(71)
+  knn_mod <- knn(train = train_framingham_norm_select,test = test_framingham_norm_select, cl = train_framingham$TenYearCHD, k = i)
+  k_optm[i] <- 100 * sum(test_framingham$TenYearCHD == knn_mod)/NROW(test_framingham$TenYearCHD)
+  k=i
+  cat(k, '=',k_optm[i],'\n') #For printing accuracy percentage
+}
+
+# The K value of 75 provided the highest accuracy. The K value of 75 was chosen.
+
+set.seed(71)
+knn_model <- knn(train = train_framingham_norm_select,test = test_framingham_norm_select, cl = train_framingham$TenYearCHD, k=75, prob = TRUE) # KNN Model
+
+library(caret)
+confusionMatrix(table(predicted = knn_model, actual = test_framingham$TenYearCHD)) # An accuracy of 76.31% was obtained
+
+
+```
+
+
+NA REMOVAL WITH BORUTA ALGORITHM FOR FEATURE SELECTION
+
+
+```{r}
+# REMOVAL OF NA VALUES FROM THE DATASET
+
+framingham_na.rm <- framingham
+framingham_na.rm <- na.omit(framingham_na.rm)
+```
+
+```{r}
+# DETECTION OF OUTLIERS
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+} 
+
+num_var <- c(2,5,10,11,12,13,14,15) # Grouping of numerical variables
+
+num_variables <- as.data.frame(lapply(framingham_na.rm[num_var], normalize)) # Numerical variables normalised.
+
+boxplot(num_variables, las = 2, main = "Outlier Detection", col = 'yellowgreen')
+
+
+```
+
+
+```{r}
+
+# REMOVAL OF OUTLIERS
+
+quartiles <- quantile(framingham_na.rm$cigsPerDay, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_na.rm$cigsPerDay)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_na.rm <- subset(framingham_na.rm, framingham_na.rm$cigsPerDay > Lower & framingham_na.rm$cigsPerDay < Upper)
+
+
+quartiles <- quantile(framingham_na.rm$totChol, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_na.rm$totChol)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_na.rm <- subset(framingham_na.rm, framingham_na.rm$totChol > Lower & framingham_na.rm$totChol < Upper)
+
+
+quartiles <- quantile(framingham_na.rm$sysBP, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_na.rm$sysBP)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_na.rm <- subset(framingham_na.rm, framingham_na.rm$sysBP > Lower & framingham_na.rm$sysBP < Upper)
+
+
+quartiles <- quantile(framingham_na.rm$diaBP, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_na.rm$diaBP)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_na.rm <- subset(framingham_na.rm, framingham_na.rm$diaBP > Lower & framingham_na.rm$diaBP < Upper)
+
+
+quartiles <- quantile(framingham_na.rm$BMI, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_na.rm$BMI)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_na.rm <- subset(framingham_na.rm, framingham_na.rm$BMI > Lower & framingham_na.rm$BMI < Upper)
+
+
+quartiles <- quantile(framingham_na.rm$heartRate, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_na.rm$heartRate)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_na.rm <- subset(framingham_na.rm, framingham_na.rm$heartRate > Lower & framingham_na.rm$heartRate < Upper)
+
+
+quartiles <- quantile(framingham_na.rm$glucose, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_na.rm$glucose)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_na.rm <- subset(framingham_na.rm, framingham_na.rm$glucose > Lower & framingham_na.rm$glucose < Upper)
+ 
+dim(framingham_na.rm)
+# The number of observations were 3161 after outliers removal.
+
+
+```
+
+
+```{r}
+
+# OUTLIERS DETECTION AFTER REMOVAL OF OUTLIERS
+num_variables <- as.data.frame(lapply(framingham_na.rm[num_var], normalize))
+
+boxplot(num_variables, las = 2, main = "Outlier Detection", col = 'yellowgreen')
+# From this boxplot, age and cigsPerDay are without outliers. 
+
+
+```
+
+
+```{r}
+
+# DATASET SPLITTING.
+
+# Before the dataset splitting, all the categorical variables are converted to integer
+
+framingham_na.rm[,cat_var] <- lapply(framingham_na.rm[,cat_var],as.integer)
+
+# The dataset is split into training and testing set
+
+#install.packages('caTools')
+library(caTools)
+set.seed(80)
+split = sample.split(framingham_na.rm$TenYearCHD, SplitRatio = 0.7)
+train_framingham_na.rm = subset(framingham_na.rm, split == TRUE)
+test_framingham_na.rm = subset(framingham_na.rm, split == FALSE)
+
+# The splitting of the dataset between training and testing is in the ratio 70:30
+
+dim(train_framingham_na.rm) # The training set has 2213 observations and 16 variables
+
+dim(test_framingham_na.rm) # The testing set has 948 observations and 16 variables
+
+# CLASS IMBALNCE INSPECTION
+
+# The training set needs to be balanced to ensure the high performance of machine learning models.
+
+table(train_framingham_na.rm$TenYearCHD) # 1920 have no risk and 293 have a high risk of CHD indicating class imbalance.
+
+barplot(table(train_framingham_na.rm$TenYearCHD), main = "Class Imbalance Graph.", col = 'yellowgreen')
+
+# Synthetic Minority Over-sampling Technique (SMOTE) will be used to increase the instances of the minority class.
+
+
+
+```
+
+```{r}
+
+# BALANCING THE TRAINING SET.
+
+library(smotefamily)
+balanced_traindata <- SMOTE(train_framingham_na.rm[-16],  # independent variables
+              train_framingham_na.rm$TenYearCHD,  # class labels
+              K = 3, dup_size = 5)  # function parameters
+
+str(balanced_traindata)
+library(dplyr)
+train_framingham_na.rm <- bind_cols(balanced_traindata$data[-16], balanced_traindata$data[16]) # The number of observations added to 3678 from 2213 after SMOTE application.
+
+str(train_framingham_na.rm) # There has been a change of the dependent variable name from TenYearCHD to class after SMOTE application.
+
+names(train_framingham_na.rm)[16]<- "TenYearCHD" # Setting the name of label to its original name
+
+table(train_framingham_na.rm$TenYearCHD) # The minority class has increased from 293 to 1758
+
+barplot(table(train_framingham_na.rm$TenYearCHD), main = "Class balance Graph.", col = 'yellowgreen')
+
+
+
+```
+
+
+```{r}
+
+# IMPORTANT VARIABLE SELECTION USING BORUTA
+
+# Dependent variables should be factors.
+
+train_framingham_na.rm$TenYearCHD <- as.factor(train_framingham_na.rm$TenYearCHD)
+test_framingham_na.rm$TenYearCHD <- as.factor(test_framingham_na.rm$TenYearCHD)
+
+# Boruta Algorithm implementation
+library("Boruta")
+set.seed(20)
+Boruta.framingham_na.rm <- Boruta(TenYearCHD ~ ., data = train_framingham_na.rm, doTrace = 2, ntree = 500)
+
+plot(Boruta.framingham_na.rm, las = 2, cex.axis = .76, xlab = "") # Plotting important attributes
+# The maximum shadow attribute has a Z score which is less than all the attributes indicating that all the attributes all important for analysis.
+
+attStats(Boruta.framingham_na.rm) # This function indicates the Z score values of the variables. The decision column of each variable is stated as confirmed showing that they are all necessary for analysis.
+
+
+
+```
+
+```{r}
+
+library(randomForest)
+
+# Find the optimal value of mtry.
+set.seed(71) 
+mtry <- tuneRF(train_framingham_na.rm[-16],train_framingham_na.rm$TenYearCHD, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+
+print(mtry)
+print(best.m)
+
+#Apply random forest (rf) with the optimal value of mtry.
+set.seed(71)
+rf <-randomForest(TenYearCHD~.,data=train_framingham_na.rm, mtry=best.m, importance=TRUE,ntree=500)
+print(rf)
+plot(rf)
+ 
+# The black curve represents the OOB error, the red curve for class 0 (no CHD) and the green curve class 1 (CHD)
+
+
+
+```
+
+```{r}
+
+# TESTING THE RANDOM FOREST MODEL
+
+# Predicting the Test set results.
+pred_rf = predict(rf, newdata = test_framingham_na.rm)
+
+
+library(caret)
+confusionMatrix(table(predicted = pred_rf, actual = test_framingham_na.rm$TenYearCHD)) # Produced an accuracy of 84.7%
+
+
+```
+
+```{r}
+
+# LOGISTIC REGRESSION CLASSIFICATION
+
+# Building the logistic regression model
+log_model_na.rm <- glm(TenYearCHD~.,data = train_framingham_na.rm,family = "binomial")
+summary(log_model_na.rm)
+
+# Testing the model.
+pred_log_na.rm <- predict(log_model_na.rm,test_framingham_na.rm,type = 'response') # provision of predictions in probabilities
+pred_log_class_na.rm <- ifelse(pred_log_na.rm >= 0.5,1,0) # Conversion from probabilities to class 0 and class 1 with threshold of 0.5
+
+library(caret)
+confusionMatrix(table(predicted = pred_log_class_na.rm, actual = test_framingham_na.rm$TenYearCHD))
+# Produced an accuracy of 69.83%
+
+```
+
+```{r}
+
+# TRAINING DATASET USED TO BUILD MODEL IN DECISION TREE
+
+#install.packages("rpart.plot")
+
+library(rpart)
+library(rpart.plot)
+
+dt <- rpart(TenYearCHD~., data = train_framingham_na.rm, method = 'class')
+rpart.plot(dt)
+
+
+
+```
+
+```{r}
+
+# TESTING DECISION TREE MODEL
+
+pred_dt <-predict(dt, test_framingham_na.rm, type = 'class')
+
+
+library("caret")
+
+confusionMatrix(table(predicted = pred_dt, actual = test_framingham_na.rm$TenYearCHD))
+# Produced an accuracy of 81.96%
+
+```
+
+```{r}
+
+# NAIVE BAYES CLASSIFICATION
+
+library(e1071)
+
+set.seed(100)
+nb <- naiveBayes(TenYearCHD~., data=train_framingham_na.rm) # Training the naive bayes model
+
+pred_nb <- predict(nb, newdata = test_framingham_na.rm) # Testing the naive bayes model
+
+confusionMatrix(table(predicted = pred_nb, actual = test_framingham_na.rm$TenYearCHD))
+# Produced an accuracy of 79.11%
+```
+
+
+```{r}
+
+# SUPPORT VECTOR MACHINE CLASSIFICATION
+
+set.seed(12)
+svm_model=svm(TenYearCHD~., data=train_framingham_na.rm, type = "C-classification", kernel="radial")
+
+pred_svm <- predict(svm_model, newdata = test_framingham_na.rm)
+
+confusionMatrix(table(predicted = pred_svm, actual = test_framingham_na.rm$TenYearCHD))
+# Produced an accuracy of 73.1%
+```
+
+
+```{r}
+
+# NORMALISATION OF DATASET.
+
+# To improve the performance of the models, the dataset should be normalised
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+# Normalising training data
+train_framingham_norm_na.rm <- as.data.frame(lapply(train_framingham_na.rm[1:15], normalize))
+
+
+# Normalising test data
+test_framingham_norm_na.rm <- as.data.frame(lapply(test_framingham_na.rm[1:15], normalize))
+
+
+
+
+```
+
+
+```{r}
+library(class)
+
+# For the determination of k in the kNN algorithm, it is preferrable to take the square root of the number of observations of the training set. In this case 60.64. K values between 55 and 65 are iterated to find the k which produces the highest accuracy  
+
+i = 56
+k_optm=1
+for (i in 56:65){set.seed(71)
+  knn_mod <- knn(train = train_framingham_norm_na.rm,test = test_framingham_norm_na.rm, cl = train_framingham_na.rm$TenYearCHD, k = i)
+  k_optm[i] <- 100 * sum(test_framingham_na.rm$TenYearCHD == knn_mod)/NROW(test_framingham_na.rm$TenYearCHD)
+  k=i
+  cat(k, '=',k_optm[i],'\n') #For printing accuracy percentage
+}
+
+# The k value of 57 produced the highest accuracy hence it was chosen.
+
+set.seed(71)
+knn_model <- knn(train = train_framingham_norm_na.rm,test = test_framingham_norm_na.rm, cl = train_framingham_na.rm$TenYearCHD, k=57, prob = TRUE) # KNN Model
+
+library(caret)
+confusionMatrix(table(predicted = knn_model, actual = test_framingham_na.rm$TenYearCHD))
+# The accuracy produced was 70.89%
+
+```
+
+
+NA REMOVAL WITH STEPWISE REGRESSION FOR FEATURE SELECTION
+
+
+```{r}
+# FEATURE SELECTION USING STEPWISE TECHNIQUE
+
+library(MASS)
+stepAIC(log_model_na.rm)
+# After this implementation, the lowest AIC value of 4443 was obtained.
+
+# All variables were selected with the exception of BMI and glucose. In total 13 of the 15 independent varables were selected.
+
+feat_selec_na.rm <- c(1,2,3,4,5,6,7,8,9,10,11,12,14,16)
+train_framingham_select_na.rm <- train_framingham_na.rm[,feat_selec_na.rm]
+test_framingham_select_na.rm <- test_framingham_na.rm[,feat_selec_na.rm]
+
+
+
+```
+
+
+```{r}
+
+# Train and tune the random forest (rf) algorithm on the training data.
+library(randomForest)
+
+# Find the optimal value of mtry.
+set.seed(71) 
+mtry <- tuneRF(train_framingham_select_na.rm[-14],train_framingham_select_na.rm$TenYearCHD, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+
+print(mtry)
+print(best.m)
+
+#Apply random forest (rf) with the optimal value of mtry.
+set.seed(71)
+rf <-randomForest(TenYearCHD~.,data=train_framingham_select_na.rm, mtry=best.m, importance=TRUE,ntree=500)
+print(rf)
+plot(rf)
+
+
+
+```
+
+```{r}
+# TESTING THE RANDOM FOREST MODEL
+
+pred_rf = predict(rf, newdata = test_framingham_select_na.rm)
+
+
+library(caret)
+confusionMatrix(table(predicted = pred_rf, actual = test_framingham_select_na.rm$TenYearCHD)) # Provided an accuracy of 84.7%
+
+
+```
+
+```{r}
+# LOGISTIC REGRESSION CLASSIFICATION
+
+# Building the logistic regression model
+log_model_select_na.rm <- glm(TenYearCHD~.,data = train_framingham_select_na.rm,family = "binomial")
+summary(log_model_select_na.rm)
+
+# Testing the model.
+pred_log <- predict(log_model_select_na.rm,test_framingham_select_na.rm,type = 'response') # provision of predictions in probabilities
+pred_log_class <- ifelse(pred_log >= 0.5,1,0) # Conversion from probabilities to class 0 and class 1 with threshold of 0.5
+
+library(caret)
+confusionMatrix(table(predicted = pred_log_class, actual = test_framingham_select_na.rm$TenYearCHD)) # Provided an accuracy of 70.25%
+
+
+```
+
+```{r}
+# DECISION TREE CLASSIFICATION - TRAINING THE MODEL
+
+library(rpart)
+library(rpart.plot)
+
+dt <- rpart(TenYearCHD~., data = train_framingham_select_na.rm, method = 'class')
+rpart.plot(dt)
+
+```
+
+```{r}
+# DECISION TREE - TESTING THE MODEL
+
+pred_dt <-predict(dt, test_framingham_select_na.rm, type = 'class')
+
+library("caret")
+confusionMatrix(table(predicted = pred_dt, actual = test_framingham_select_na.rm$TenYearCHD)) # Accuracy of 81.33%
+
+
+```
+
+```{r}
+# NAIVE BAYES CLASSIFICATION
+
+library(e1071)
+
+set.seed(100)
+nb <- naiveBayes(TenYearCHD~., data=train_framingham_select_na.rm)
+
+pred_nb <- predict(nb, newdata = test_framingham_select_na.rm)
+
+confusionMatrix(table(predicted = pred_nb, actual = test_framingham_select_na.rm$TenYearCHD)) # Accuracy of 78.8%
+
+
+```
+
+```{r}
+
+# SUPPORT VECTOR MACHINE CLASSIFICATION
+
+set.seed(12)
+svm_model=svm(TenYearCHD~., data=train_framingham_select_na.rm, type = "C-classification", kernel="radial")
+
+pred_svm <- predict(svm_model, newdata = test_framingham_select_na.rm)
+
+confusionMatrix(table(predicted = pred_svm, actual = test_framingham_select_na.rm$TenYearCHD))# Accuracy of 74.05%
+
+
+
+
+```
+
+```{r}
+# KNN CLASSIFICATION
+
+feat_selec_knn <- c(1,2,3,4,5,6,7,8,9,10,11,12,14)
+
+# Selecting normalised features for KNN classification
+train_framingham_norm_select_na.rm <- train_framingham_norm_na.rm[,feat_selec_knn]
+test_framingham_norm_select_na.rm <- test_framingham_norm_na.rm[,feat_selec_knn]
+
+library(class)
+
+# For the determination of k in the kNN algorithm, it is preferrable to take the square root of the number of observations of the training set. In this case 60.64. K values between 55 and 65 are iterated to find the k which produces the highest accuracy  
+
+i = 55
+k_optm=65
+for (i in 55:65){set.seed(71)
+  knn_mod <- knn(train = train_framingham_norm_select_na.rm,test = test_framingham_norm_select_na.rm, cl = train_framingham_na.rm$TenYearCHD, k = i)
+  k_optm[i] <- 100 * sum(test_framingham_na.rm$TenYearCHD == knn_mod)/NROW(test_framingham_na.rm$TenYearCHD)
+  k=i
+  cat(k, '=',k_optm[i],'\n') #For printing accuracy percentage
+}
+
+# The K value of 56 provided the highest accuracy. The K value of 56 was chosen.
+
+set.seed(71)
+knn_model <- knn(train = train_framingham_norm_select_na.rm,test = test_framingham_norm_select_na.rm, cl = train_framingham_na.rm$TenYearCHD, k=56, prob = TRUE) # KNN Model
+
+library(caret)
+confusionMatrix(table(predicted = knn_model, actual = test_framingham_na.rm$TenYearCHD)) # An accuracy of 72.15% was obtained
+
+
+```
+
+
+MEAN IMPUTATION OF DATASET WITH BORUTA ALGORITHM FOR FEATURE SELECTION
+
+
+```{r}
+framingham_mean <- framingham
+
+library(Hmisc)
+
+# Mean imputation of variables with missing values
+framingham_mean$heartRate <- impute(framingham_mean$heartRate, mean)
+framingham_mean$BMI <- impute(framingham_mean$BMI, mean)
+framingham_mean$cigsPerDay <- impute(framingham_mean$cigsPerDay, mean)
+framingham_mean$totChol <- impute(framingham_mean$totChol, mean)
+framingham_mean$BPMeds <- impute(framingham_mean$BPMeds, mean)
+framingham_mean$education <- impute(framingham_mean$education, mean)
+framingham_mean$glucose <- impute(framingham_mean$glucose, mean)
+
+sum(is.na(framingham_mean)) # The absence of no missing value after mean imputation
+
+```
+
+```{r}
+
+# A normalisation function is generated
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+} 
+
+num_var <- c(2,5,10,11,12,13,14,15) # Grouping of numerical variables
+
+num_variables <- as.data.frame(lapply(framingham_mean[num_var], normalize)) # Numerical variables normalised.
+
+boxplot(num_variables, las = 2, main = "Outlier Detection", col = 'lightseagreen')
+
+
+
+```
+
+```{r}
+# OUTLIER REMOVAL
+
+quartiles <- quantile(framingham_mean$cigsPerDay, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_mean$cigsPerDay)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_mean <- subset(framingham_mean, framingham_mean$cigsPerDay > Lower & framingham_mean$cigsPerDay < Upper)
+
+
+quartiles <- quantile(framingham_mean$totChol, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_mean$totChol)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_mean <- subset(framingham_mean, framingham_mean$totChol > Lower & framingham_mean$totChol < Upper)
+
+
+quartiles <- quantile(framingham_mean$sysBP, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_mean$sysBP)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_mean <- subset(framingham_mean, framingham_mean$sysBP > Lower & framingham_mean$sysBP < Upper)
+
+
+quartiles <- quantile(framingham_mean$diaBP, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_mean$diaBP)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_mean <- subset(framingham_mean, framingham_mean$diaBP > Lower & framingham_mean$diaBP < Upper)
+
+
+quartiles <- quantile(framingham_mean$BMI, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_mean$BMI)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_mean <- subset(framingham_mean, framingham_mean$BMI > Lower & framingham_mean$BMI < Upper)
+
+
+quartiles <- quantile(framingham_mean$heartRate, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_mean$heartRate)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_mean <- subset(framingham_mean, framingham_mean$heartRate > Lower & framingham_mean$heartRate < Upper)
+
+
+quartiles <- quantile(framingham_mean$glucose, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_mean$glucose)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_mean <- subset(framingham_mean, framingham_mean$glucose > Lower & framingham_mean$glucose < Upper)
+ 
+dim(framingham_mean)
+
+# The number of observations reduced to 3620 after the removal of outliers
+
+```
+
+```{r}
+
+num_variables <- as.data.frame(lapply(framingham_mean[num_var], normalize))
+
+boxplot(num_variables, las = 2, main = "Outlier Detection", col = 'lightseagreen')
+# From this boxplot, age and cigsPerDay are without outliers. 
+
+
+```
+
+```{r}
+
+# DATASET SPLITTING.
+
+# Conversion of categorical variables to integers
+framingham_mean[,cat_var] <- lapply(framingham_mean[,cat_var],as.integer)
+
+# The dataset is split into training and testing set
+
+#install.packages('caTools')
+library(caTools)
+set.seed(80)
+split = sample.split(framingham_mean$TenYearCHD, SplitRatio = 0.7)
+train_framingham_mean = subset(framingham_mean, split == TRUE)
+test_framingham_mean = subset(framingham_mean, split == FALSE)
+
+# The splitting of the dataset between training and testing is in the ratio 70:30
+
+dim(train_framingham_mean) # The training set has 2534 observations and 16 variables
+
+dim(test_framingham_mean) # The testing set has 1086 observations and 16 variables
+
+# CLASS IMBALNCE INSPECTION
+
+# The training set needs to be balanced to ensure the high performance of machine learning models.
+
+table(train_framingham_mean$TenYearCHD) # 2197 have no risk and 337 have a high risk of CHD indicating class imbalance.
+
+barplot(table(train_framingham_mean$TenYearCHD), main = "Class Imbalance Graph.", col = 'lightseagreen')
+
+# Synthetic Minority Over-sampling Technique (SMOTE) will be used to increase the instances of the minority class.
+
+
+
+```
+
+```{r}
+
+# BALANCING THE TRAINING SET.
+
+library(smotefamily)
+balanced_traindata <- SMOTE(train_framingham_mean[-16],  # independent variables
+              train_framingham_mean$TenYearCHD,  # class labels
+              K = 3, dup_size = 5)  # function parameters
+
+str(balanced_traindata)
+library(dplyr)
+train_framingham_mean <- bind_cols(balanced_traindata$data[-16], balanced_traindata$data[16]) # The number of observations added to 4219 from 2534 after SMOTE application.
+
+str(train_framingham_mean) # There has been a change of the dependent variable name from TenYearCHD to class after SMOTE application.
+
+names(train_framingham_mean)[16]<- "TenYearCHD" # Setting the name of label to its original name
+
+table(train_framingham_mean$TenYearCHD) # The minority class has increased from 337 to 2022
+
+barplot(table(train_framingham_mean$TenYearCHD), main = "Class balance Graph.", col = 'lightseagreen')
+
+
+```
+
+```{r}
+# BORUTA ALGORITHM FOR FEATURE SELECTION
+
+# Dependent variables should be factors.
+
+train_framingham_mean$TenYearCHD <- as.factor(train_framingham_mean$TenYearCHD)
+test_framingham_mean$TenYearCHD <- as.factor(test_framingham_mean$TenYearCHD)
+
+# Boruta Algorithm implementation
+library("Boruta")
+set.seed(20)
+Boruta.framingham_mean <- Boruta(TenYearCHD ~ ., data = train_framingham_mean, doTrace = 2, ntree = 500)
+
+plot(Boruta.framingham_mean, las = 2, cex.axis = .76, xlab = "") # Plotting important attributes
+# The maximum shadow attribute has a Z score which is less than all the attributes indicating that all the attributes all important for analysis.
+
+attStats(Boruta.framingham_mean) # This function indicates the Z score values of the variables. The decision column of each variable is stated as confirmed showing that they are all necessary for analysis.
+
+
+```
+
+```{r}
+# RANDOM FOREST CLASSIFICATION - TRAINING
+
+library(randomForest)
+
+# Find the optimal value of mtry.
+set.seed(71) 
+mtry <- tuneRF(train_framingham_mean[-16],train_framingham_mean$TenYearCHD, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+
+print(mtry)
+print(best.m)
+
+#Apply random forest (rf) with the optimal value of mtry.
+set.seed(71)
+rf <-randomForest(TenYearCHD~.,data=train_framingham_mean, mtry=best.m, importance=TRUE,ntree=500)
+print(rf)
+plot(rf)
+ 
+# The black curve represents the OOB error, the red curve for class 0 (no CHD) and the green curve class 1 (CHD)
+
+
+```
+
+
+```{r}
+
+# TESTING THE RANDOM FOREST MODEL
+
+# Predicting the Test set results.
+pred_rf = predict(rf, newdata = test_framingham_mean)
+
+
+library(caret)
+confusionMatrix(table(predicted = pred_rf, actual = test_framingham_mean$TenYearCHD))
+# An accuracy of 84.53% was produced
+
+```
+
+
+```{r}
+
+# LOGISTIC REGRESSION CLASSIFICATION
+
+# Building the logistic regression model
+log_model_mean <- glm(TenYearCHD~.,data = train_framingham_mean,family = "binomial")
+summary(log_model_mean)
+
+# Testing the model.
+pred_log <- predict(log_model_mean,test_framingham_mean,type = 'response') # provision of predictions in probabilities
+pred_log_class <- ifelse(pred_log >= 0.5,1,0) # Conversion from probabilities to class 0 and class 1 with threshold of 0.5
+
+library(caret)
+confusionMatrix(table(predicted = pred_log_class, actual = test_framingham_mean$TenYearCHD))
+# An accuracy of 68.6% was produced
+```
+
+```{r}
+# DECISION TREE CLASSIFICATION - TRAINING
+
+library(rpart)
+library(rpart.plot)
+
+dt <- rpart(TenYearCHD~., data = train_framingham_mean, method = 'class')
+rpart.plot(dt)
+
+
+```
+
+```{r}
+# DECISION TREE CLASSIFICATION - TESTING
+
+pred_dt <-predict(dt, test_framingham_mean, type = 'class')
+
+#install.packages("caret")
+library("caret")
+confusionMatrix(table(predicted = pred_dt, actual = test_framingham_mean$TenYearCHD)) # Accuracy of 75.78%
+
+
+```
+
+```{r}
+# NAIVE BAYES CLASSIFICATION
+
+library(e1071)
+
+set.seed(100)
+nb <- naiveBayes(TenYearCHD~., data=train_framingham_mean) # Training the naive bayes model
+
+pred_nb <- predict(nb, newdata = test_framingham_mean) # Testing the trained model
+
+confusionMatrix(table(predicted = pred_nb, actual = test_framingham_mean$TenYearCHD)) # Accuracy of 75.97%
+
+
+```
+
+```{r}
+# SUPPORT VECTOR MACHINE CLASSIFICATION
+
+set.seed(12)
+
+svm_model=svm(TenYearCHD~., data=train_framingham_mean, type = "C-classification", kernel="radial")
+# Training the SVM model
+
+pred_svm <- predict(svm_model, newdata = test_framingham_mean) # Testing the SVM model
+
+confusionMatrix(table(predicted = pred_svm, actual = test_framingham_mean$TenYearCHD))# Accuracy of 74.86% obtained
+
+
+```
+
+```{r}
+# NORMALISATION OF DATASET
+
+# To improve the performance of the models, the dataset should be normalised
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+# Normalising training data
+train_framingham_norm_mean <- as.data.frame(lapply(train_framingham_mean[1:15], normalize))
+
+
+# Normalising test data
+test_framingham_norm_mean <- as.data.frame(lapply(test_framingham_mean[1:15], normalize))
+
+
+```
+
+
+```{r}
+# KNN CLASSIFICATION
+
+library(class)
+
+# For the determination of k in the kNN algorithm, it is preferrable to take the square root of the number of observations of the training set. In this case 64.95. K values between 60 and 70 are iterated to find the k which produces the highest accuracy  
+
+i = 60
+k_optm=1
+for (i in 60:70){set.seed(71)
+  knn_mod <- knn(train = train_framingham_norm_mean,test = test_framingham_norm_mean, cl = train_framingham_mean$TenYearCHD, k = i)
+  k_optm[i] <- 100 * sum(test_framingham_mean$TenYearCHD == knn_mod)/NROW(test_framingham_mean$TenYearCHD)
+  k=i
+  cat(k, '=',k_optm[i],'\n') #For printing accuracy percentage
+}
+
+# The k value of 63 produced the highest accuracy hence it was chosen.
+
+set.seed(71)
+knn_model <- knn(train = train_framingham_norm_mean,test = test_framingham_norm_mean, cl = train_framingham_mean$TenYearCHD, k=63, prob = TRUE) # KNN Model
+
+library(caret)
+confusionMatrix(table(predicted = knn_model, actual = test_framingham_mean$TenYearCHD))
+# The accuracy produced was 68.97%
+
+
+```
+
+
+MEAN IMPUTATION WITH STEPWISE REGRESSION FOR FEATURE SELECTION
+
+
+```{r}
+# FEATURE SELECTION USING STEPWISE TECHNIQUE
+
+library(MASS)
+stepAIC(log_model_mean)
+# After this implementation, the lowest AIC value of 5108 was obtained.
+
+# 11 variables were selected.
+
+feat_selec_mean <- c(1,2,3,4,5,7,9,11,13,14,15,16)
+train_framingham_select_mean <- train_framingham_mean[,feat_selec_mean]
+test_framingham_select_mean <- test_framingham_mean[,feat_selec_mean]
+
+
+
+```
+
+
+```{r}
+# RANDOM FOREST CLASSIFICATION - TRAINING
+
+# Train and tune the random forest (rf) algorithm on the training data.
+library(randomForest)
+
+# Find the optimal value of mtry.
+set.seed(71) 
+mtry <- tuneRF(train_framingham_select_mean[-12],train_framingham_select_mean$TenYearCHD, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+
+print(mtry)
+print(best.m)
+
+#Apply random forest (rf) with the optimal value of mtry.
+set.seed(71)
+rf <-randomForest(TenYearCHD~.,data=train_framingham_select_mean, mtry=best.m, importance=TRUE,ntree=500)
+print(rf)
+plot(rf)
+
+
+```
+
+```{r}
+# TESTING THE RANDOM FOREST MODEL
+
+pred_rf = predict(rf, newdata = test_framingham_select_mean)
+
+
+library(caret)
+confusionMatrix(table(predicted = pred_rf, actual = test_framingham_select_mean$TenYearCHD)) # Provided an accuracy of 82.69%
+
+
+```
+
+```{r}
+# LOGISTIC REGRESSION CLASSIFICATION
+
+# Building the logistic regression model
+log_model_select_mean <- glm(TenYearCHD~.,data = train_framingham_select_mean,family = "binomial")
+summary(log_model_select_mean)
+
+# Testing the model.
+pred_log <- predict(log_model_select_mean,test_framingham_select_mean,type = 'response') # provision of predictions in probabilities
+pred_log_class <- ifelse(pred_log >= 0.5,1,0) # Conversion from probabilities to class 0 and class 1 with threshold of 0.5
+
+library(caret)
+confusionMatrix(table(predicted = pred_log_class, actual = test_framingham_select_mean$TenYearCHD)) # Provided an accuracy of 67.96%
+
+```
+
+```{r}
+# DECISION TREE CLASSIFICATION - TRAINING
+
+library(rpart)
+library(rpart.plot)
+
+dt <- rpart(TenYearCHD~., data = train_framingham_select_mean, method = 'class')
+rpart.plot(dt)
+
+
+```
+
+```{r}
+# DECISION TREE - TESTING
+
+pred_dt <-predict(dt, test_framingham_select_mean, type = 'class')
+
+#install.packages("caret")
+library("caret")
+confusionMatrix(table(predicted = pred_dt, actual = test_framingham_select_mean$TenYearCHD)) # Accuracy of 76.06%
+
+
+```
+
+```{r}
+# NAIVE BAYES CLASSIFICATION
+
+library(e1071)
+
+set.seed(100)
+nb <- naiveBayes(TenYearCHD~., data=train_framingham_select_mean) # Training the naive bayes model
+
+pred_nb <- predict(nb, newdata = test_framingham_select_mean) # Testing the naive bayes model
+
+confusionMatrix(table(predicted = pred_nb, actual = test_framingham_select_mean$TenYearCHD)) # Accuracy of 78.91%
+
+
+```
+
+```{r}
+
+# SUPPORT VECTOR MACHINE CLASSIFICATION
+
+set.seed(12)
+svm_model=svm(TenYearCHD~., data=train_framingham_select_mean, type = "C-classification", kernel="radial")
+
+pred_svm <- predict(svm_model, newdata = test_framingham_select_mean)
+
+confusionMatrix(table(predicted = pred_svm, actual = test_framingham_select_mean$TenYearCHD))# Accuracy of 72.1%
+
+
+```
+
+```{r}
+# KNN CLASSIFICATION
+
+feat_selec_knn <- c(1,2,3,4,5,7,9,11,13,14,15)
+
+# Selecting normalised features for KNN classification
+train_framingham_norm_select_mean <- train_framingham_norm_mean[,feat_selec_knn]
+test_framingham_norm_select_mean <- test_framingham_norm_mean[,feat_selec_knn]
+
+library(class)
+
+# For the determination of k in the kNN algorithm, it is preferrable to take the square root of the number of observations of the training set. In this case 64.95. K values between 60 and 70 are iterated to find the k which produces the highest accuracy  
+
+i = 60
+k_optm=60
+for (i in 60:70){set.seed(71)
+  knn_mod <- knn(train = train_framingham_norm_select_mean,test = test_framingham_norm_select_mean, cl = train_framingham_mean$TenYearCHD, k = i)
+  k_optm[i] <- 100 * sum(test_framingham_mean$TenYearCHD == knn_mod)/NROW(test_framingham_mean$TenYearCHD)
+  k=i
+  cat(k, '=',k_optm[i],'\n') #For printing accuracy percentage
+}
+
+# The K values of 63 and 70 provided the highest accuracy. The K value of 63 was chosen.
+
+set.seed(71)
+knn_model <- knn(train = train_framingham_norm_select_mean,test = test_framingham_norm_select_mean, cl = train_framingham_mean$TenYearCHD, k=63, prob = TRUE) # KNN Model
+
+library(caret)
+confusionMatrix(table(predicted = knn_model, actual = test_framingham_mean$TenYearCHD)) 
+# An accuracy of 68.97% was obtained
+
+
+
+```
+
+
+MEDIAN IMPUTATION WITH BORUTA FEATURE SELECTION
+
+
+```{r}
+
+framingham_median <- framingham
+
+# Median imputation of variables with missing values
+framingham_median$heartRate <- impute(framingham_median$heartRate, median)
+framingham_median$BMI <- impute(framingham_median$BMI, median)
+framingham_median$cigsPerDay <- impute(framingham_median$cigsPerDay, median)
+framingham_median$totChol <- impute(framingham_median$totChol, median)
+framingham_median$BPMeds <- impute(framingham_median$BPMeds, median)
+framingham_median$education <- impute(framingham_median$education, median)
+framingham_median$glucose <- impute(framingham_median$glucose, median)
+
+sum(is.na(framingham_median)) # No missing values after imputation
+
+
+```
+
+```{r}
+
+# A normalisation function is generated
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+} 
+
+num_var <- c(2,5,10,11,12,13,14,15) # Grouping of numerical variables
+
+num_variables <- as.data.frame(lapply(framingham_median[num_var], normalize)) # Numerical variables normalised.
+
+boxplot(num_variables, las = 2, main = "Outlier Detection", col = 'cornsilk4')
+
+
+```
+
+```{r}
+
+# OUTLIER REMOVAL
+
+quartiles <- quantile(framingham_median$cigsPerDay, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_median$cigsPerDay)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_median <- subset(framingham_median, framingham_median$cigsPerDay > Lower & framingham_median$cigsPerDay < Upper)
+
+
+quartiles <- quantile(framingham_median$totChol, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_median$totChol)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_median <- subset(framingham_median, framingham_median$totChol > Lower & framingham_median$totChol < Upper)
+
+
+quartiles <- quantile(framingham_median$sysBP, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_median$sysBP)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_median <- subset(framingham_median, framingham_median$sysBP > Lower & framingham_median$sysBP < Upper)
+
+
+quartiles <- quantile(framingham_median$diaBP, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_median$diaBP)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_median <- subset(framingham_median, framingham_median$diaBP > Lower & framingham_median$diaBP < Upper)
+
+
+quartiles <- quantile(framingham_median$BMI, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_median$BMI)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_median <- subset(framingham_median, framingham_median$BMI > Lower & framingham_median$BMI < Upper)
+
+
+quartiles <- quantile(framingham_median$heartRate, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_median$heartRate)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_median <- subset(framingham_median, framingham_median$heartRate > Lower & framingham_median$heartRate < Upper)
+
+
+quartiles <- quantile(framingham_median$glucose, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(framingham_median$glucose)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+framingham_median <- subset(framingham_median, framingham_median$glucose > Lower & framingham_median$glucose < Upper)
+ 
+dim(framingham_median)
+
+# 3620 observations remained after the removal of outliers
+
+```
+
+```{r}
+
+num_variables <- as.data.frame(lapply(framingham_median[num_var], normalize))
+
+boxplot(num_variables, las = 2, main = "Outlier Detection", col = 'cornsilk4')
+# From this boxplot, age and cigsPerDay are without outliers. 
+
+
+```
+
+
+```{r}
+
+# DATASET SPLITTING.
+
+# Conversion of categorical variables to integers
+framingham_median[,cat_var] <- lapply(framingham_median[,cat_var],as.integer)
+
+# The dataset is split into training and testing set
+
+#install.packages('caTools')
+library(caTools)
+set.seed(80)
+split = sample.split(framingham_median$TenYearCHD, SplitRatio = 0.7)
+train_framingham_median = subset(framingham_median, split == TRUE)
+test_framingham_median = subset(framingham_median, split == FALSE)
+
+# The splitting of the dataset between training and testing is in the ratio 70:30
+
+dim(train_framingham_median) # The training set has 2534 observations and 16 variables
+
+dim(test_framingham_median) # The testing set has 1085 observations and 16 variables
+
+# CLASS IMBALNCE INSPECTION
+
+# The training set needs to be balanced to ensure the high performance of machine learning models.
+
+table(train_framingham_median$TenYearCHD) # 2197 have no risk and 337 have a high risk of CHD indicating class imbalance.
+
+barplot(table(train_framingham_median$TenYearCHD), main = "Class Imbalance Graph.", col = 'cornsilk4')
+
+# Synthetic Minority Over-sampling Technique (SMOTE) will be used to increase the instances of the minority class.
+
+
+```
+
+```{r}
+
+# BALANCING THE TRAINING SET.
+
+library(smotefamily)
+balanced_traindata <- SMOTE(train_framingham_median[-16],  # independent variables
+              train_framingham_median$TenYearCHD,  # class labels
+              K = 3, dup_size = 5)  # function parameters
+
+str(balanced_traindata)
+library(dplyr)
+train_framingham_median <- bind_cols(balanced_traindata$data[-16], balanced_traindata$data[16]) # The number of observations added to 4219 from 2534 after SMOTE application.
+
+str(train_framingham_median) # There has been a change of the dependent variable name from TenYearCHD to class after SMOTE application.
+
+names(train_framingham_median)[16]<- "TenYearCHD" # Setting the name of label to its original name
+
+table(train_framingham_median$TenYearCHD) # The minority class has increased from 337 to 2022
+
+barplot(table(train_framingham_median$TenYearCHD), main = "Class balance Graph.", col = 'cornsilk4')
+
+
+```
+
+```{r}
+
+# BORUTA ALGORITHM FOR FEATURE SELECTION
+
+# Dependent variables should be factors.
+
+train_framingham_median$TenYearCHD <- as.factor(train_framingham_median$TenYearCHD)
+test_framingham_median$TenYearCHD <- as.factor(test_framingham_median$TenYearCHD)
+
+# Boruta Algorithm implementation
+library("Boruta")
+set.seed(20)
+Boruta.framingham_median <- Boruta(TenYearCHD ~ ., data = train_framingham_median, doTrace = 2, ntree = 500)
+
+plot(Boruta.framingham_median, las = 2, cex.axis = .76, xlab = "") # Plotting important attributes
+# The maximum shadow attribute has a Z score which is less than all the attributes indicating that all the attributes all important for analysis.
+
+attStats(Boruta.framingham_median) # This function indicates the Z score values of the variables. The decision column of each variable is stated as confirmed showing that they are all necessary for analysis.
+
+
+
+```
+
+```{r}
+# RANDOM FOREST CLASSIFICATION - TRAINING
+
+# Train and tune the random forest (rf) algorithm on the training data.
+library(randomForest)
+
+# Find the optimal value of mtry.
+set.seed(71) 
+mtry <- tuneRF(train_framingham_median[-16],train_framingham_median$TenYearCHD, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+
+print(mtry)
+print(best.m)
+
+#Apply random forest (rf) with the optimal value of mtry.
+set.seed(70)
+rf <-randomForest(TenYearCHD~.,data=train_framingham_median, mtry=best.m, importance=TRUE,ntree=500)
+print(rf)
+plot(rf)
+
+
+# The black curve represents the OOB error, the red curve for class 0 (no CHD) and the green curve class 1 (CHD)
+
+
+
+
+```
+
+```{r}
+
+# TESTING THE RANDOM FOREST MODEL
+
+# Predicting the Test set results.
+pred_rf = predict(rf, newdata = test_framingham_median)
+
+
+library(caret)
+confusionMatrix(table(predicted = pred_rf, actual = test_framingham_median$TenYearCHD))
+# An accuracy of 84.62% was obtained
+
+```
+
+```{r}
+
+# LOGISTIC REGRESSION CLASSIFICATION
+
+# Building the logistic regression model
+log_model_median <- glm(TenYearCHD~.,data = train_framingham_median,family = "binomial")
+summary(log_model_median)
+
+# Testing the model.
+pred_log <- predict(log_model_median,test_framingham_median,type = 'response') # provision of predictions in probabilities
+pred_log_class <- ifelse(pred_log >= 0.5,1,0) # Conversion from probabilities to class 0 and class 1 with threshold of 0.5
+
+library(caret)
+confusionMatrix(table(predicted = pred_log_class, actual = test_framingham_median$TenYearCHD))
+
+# An accuracy of 68.32% was obtained.
+
+```
+
+```{r}
+# DECISION TREE CLASSIFICATION - TRAINING 
+
+library(rpart)
+library(rpart.plot)
+
+dt <- rpart(TenYearCHD~., data = train_framingham_median, method = 'class')
+rpart.plot(dt)
+
+
+```
+
+```{r}
+# DECISION TREE CLASSIFICATION - TESTING
+
+pred_dt <-predict(dt, test_framingham_median, type = 'class')
+
+library("caret")
+confusionMatrix(table(predicted = pred_dt, actual = test_framingham_median$TenYearCHD)) # Accuracy of 75.78%
+
+
+```
+
+```{r}
+# NAIVE BAYES CLASSIFICATION
+library(e1071)
+
+set.seed(100)
+nb <- naiveBayes(TenYearCHD~., data=train_framingham_median) # Building the naive bayes model
+
+pred_nb <- predict(nb, newdata = test_framingham_median) # Training the model
+
+confusionMatrix(table(predicted = pred_nb, actual = test_framingham_median$TenYearCHD)) # Accuracy of 75.6%
+
+
+```
+
+```{r}
+# SUPPORT VECTOR MACHINE CLASSIFICATION
+
+set.seed(12)
+svm_model=svm(TenYearCHD~., data=train_framingham_median, type = "C-classification", kernel="radial")
+
+pred_svm <- predict(svm_model, newdata = test_framingham_median)
+
+confusionMatrix(table(predicted = pred_svm, actual = test_framingham_median$TenYearCHD))# Accuracy of 74.22%
+
+
+```
+
+```{r}
+# NORMALISATION OF DATASET
+
+# To improve the performance of the models, the dataset should be normalised
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+# Normalising training data
+train_framingham_norm_median <- as.data.frame(lapply(train_framingham_median[1:15], normalize))
+
+
+# Normalising test data
+test_framingham_norm_median <- as.data.frame(lapply(test_framingham_median[1:15], normalize))
+
+
+```
+
+```{r}
+# KNN CLASSIFICATION
+
+library(class)
+
+# For the determination of k in the kNN algorithm, it is preferrable to take the square root of the number of observations of the training set. In this case 64.95. K values between 60 and 70 are iterated to find the k which produces the highest accuracy  
+
+i = 60
+k_optm=60
+for (i in 60:70){set.seed(71)
+  knn_mod <- knn(train = train_framingham_norm_median,test = test_framingham_norm_median, cl = train_framingham_median$TenYearCHD, k = i)
+  k_optm[i] <- 100 * sum(test_framingham_median$TenYearCHD == knn_mod)/NROW(test_framingham_median$TenYearCHD)
+  k=i
+  cat(k, '=',k_optm[i],'\n') #For printing accuracy percentage
+}
+
+# The k value of 68 produced the highest accuracy hence it was chosen.
+
+set.seed(71)
+knn_model <- knn(train = train_framingham_norm_median,test = test_framingham_norm_median, cl = train_framingham_median$TenYearCHD, k=68, prob = TRUE) # KNN Model
+
+library(caret)
+confusionMatrix(table(predicted = knn_model, actual = test_framingham_median$TenYearCHD))
+# The accuracy produced was 68.69%
+
+
+```
+
+
+MEDIAN IMPUTATION WITH STEPWISE FEATURE SELECTION 
+
+
+```{r}
+
+library(MASS)
+stepAIC(log_model_median)
+# After this implementation, the lowest AIC value of 5098 was obtained.
+
+# 11 variables were selected.
+
+feat_selec_median <- c(1,2,3,4,5,7,9,11,13,14,15,16)
+train_framingham_select_median <- train_framingham_median[,feat_selec_median]
+test_framingham_select_median <- test_framingham_median[,feat_selec_median]
+
+
+```
+
+```{r}
+# RANDOM FOREST - TRAINING
+
+# Train and tune the random forest (rf) algorithm on the training data.
+library(randomForest)
+
+# Find the optimal value of mtry.
+set.seed(71) 
+mtry <- tuneRF(train_framingham_select_median[-12],train_framingham_select_median$TenYearCHD, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+
+print(mtry)
+print(best.m)
+
+#Apply random forest (rf) with the optimal value of mtry.
+set.seed(71)
+rf <-randomForest(TenYearCHD~.,data=train_framingham_select_median, mtry=best.m, importance=TRUE,ntree=500)
+print(rf)
+plot(rf)
+
+
+```
+
+```{r}
+# TESTING OF RANDOM FOREST MODEL
+
+pred_rf = predict(rf, newdata = test_framingham_select_median)
+
+
+library(caret)
+confusionMatrix(table(predicted = pred_rf, actual = test_framingham_select_median$TenYearCHD)) # Provided an accuracy of 83.7%
+
+
+```
+
+```{r}
+# LOGISTIC REGRESSION CLASSIFICATION
+
+# Building the logistic regression model
+log_model_select_median <- glm(TenYearCHD~.,data = train_framingham_select_median,family = "binomial")
+summary(log_model_select_median)
+
+# Testing the model.
+pred_log <- predict(log_model_select_median,test_framingham_select_median,type = 'response') # provision of predictions in probabilities
+pred_log_class <- ifelse(pred_log >= 0.5,1,0) # Conversion from probabilities to class 0 and class 1 with threshold of 0.5
+
+library(caret)
+confusionMatrix(table(predicted = pred_log_class, actual = test_framingham_select_median$TenYearCHD)) # Provided an accuracy of 68.14%
+
+
+```
+
+```{r}
+# DECISION TREE CLASSIFICATION - TRAINING
+
+library(rpart)
+library(rpart.plot)
+
+dt <- rpart(TenYearCHD~., data = train_framingham_select_median, method = 'class')
+rpart.plot(dt)
+
+
+```
+
+```{r}
+# DECISION TREE CLASSIFICATION - TESTING
+
+pred_dt <-predict(dt, test_framingham_select_median, type = 'class')
+
+library("caret")
+confusionMatrix(table(predicted = pred_dt, actual = test_framingham_select_median$TenYearCHD)) # Accuracy of 76.06%
+
+```
+
+```{r}
+# NAIVE BAYES CLASSIFICATION
+
+library(e1071)
+
+set.seed(100)
+nb <- naiveBayes(TenYearCHD~., data=train_framingham_select_median) # Training the model
+
+pred_nb <- predict(nb, newdata = test_framingham_select_median) # Testing the model
+
+confusionMatrix(table(predicted = pred_nb, actual = test_framingham_select_median$TenYearCHD)) # Accuracy of 78.36%
+
+
+```
+
+```{r}
+
+# SUPPORT VECTOR MACHINE CLASSIFICATION
+
+set.seed(12)
+svm_model = svm(TenYearCHD~., data=train_framingham_select_median, type = "C-classification", kernel="radial")
+
+pred_svm <- predict(svm_model, newdata = test_framingham_select_median)
+
+confusionMatrix(table(predicted = pred_svm, actual = test_framingham_select_median$TenYearCHD))# Accuracy of 72.56%
+
+
+```
+
+```{r}
+# KNN CLASSIFICATION
+
+feat_selec_knn <- c(1,2,3,4,5,7,9,11,13,14,15)
+
+# Selecting normalised features for KNN classification
+train_framingham_norm_select_median <- train_framingham_norm_median[,feat_selec_knn]
+test_framingham_norm_select_median <- test_framingham_norm_median[,feat_selec_knn]
+
+library(class)
+
+# For the determination of k in the kNN algorithm, it is preferrable to take the square root of the number of observations of the training set. In this case 64.95. K values between 60 and 70 are iterated to find the k which produces the highest accuracy  
+
+i = 60
+k_optm=1
+for (i in 60:70){set.seed(71)
+  knn_mod <- knn(train = train_framingham_norm_select_median,test = test_framingham_norm_select_median, cl = train_framingham_median$TenYearCHD, k = i)
+  k_optm[i] <- 100 * sum(test_framingham_median$TenYearCHD == knn_mod)/NROW(test_framingham_median$TenYearCHD)
+  k=i
+  cat(k, '=',k_optm[i],'\n') #For printing accuracy percentage
+}
+
+# The K value of 62 provided the highest accuracy hence it was chosen.
+
+set.seed(71)
+knn_model <- knn(train = train_framingham_norm_select_median,test = test_framingham_norm_select_median, cl = train_framingham_median$TenYearCHD, k=62, prob = TRUE) # KNN Model
+
+library(caret)
+confusionMatrix(table(predicted = knn_model, actual = test_framingham_median$TenYearCHD)) 
+# An accuracy of 68.6% was obtained
+
+
+```
+
+
+
+
+
