@@ -35,4 +35,4 @@ Future Improvements:
 Visualisations
 ## Feature selection
 
-![Feature selection](images/boruta fearture selection.png)
+![Feature selection](images/Boruta fearture selection.png)
