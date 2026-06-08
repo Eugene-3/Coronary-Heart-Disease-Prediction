@@ -33,6 +33,12 @@ Future Improvements:
 - Additional feature selection
 
 Visualisations
+## Feature Selection
 
+![Feature Selection](images/Boruta feature selection.png)
+
+## Confusion Matrix
+
+![Confusion Matrix](images/confusion_matrix.png)
 
 
