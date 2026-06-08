@@ -31,3 +31,5 @@ Random Forest achieved 85.25% accuracy.
 Future Improvements:
 - Hyperparameter tuning
 - Additional feature selection
+
+Images
