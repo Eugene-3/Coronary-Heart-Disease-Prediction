@@ -33,12 +33,21 @@ Future Improvements:
 - Additional feature selection
 
 Visualisations
+## Missing Values
+
+![Missing Values](images/Missing_values_plot_pattern.png)
+
+## Correlation Heatmap
+
+![Correlation Heatmap](images/Correlation_Heatmap.png)
+
 ## Feature Selection
 
-![Feature Selection](images/Boruta feature selection.png)
+![Feature Selection](images/Boruta_feature_selection.png)
 
-## Confusion Matrix
+## ROC curves
 
-![Confusion Matrix](images/confusion_matrix.png)
+![ROC curves](images/ROC_curves.png)
+
 
 
