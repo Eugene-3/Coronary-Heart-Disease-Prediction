@@ -33,4 +33,6 @@ Future Improvements:
 - Additional feature selection
 
 Visualisations
+## Feature selection
 
+![Feature selection](images/boruta feature selection.png)
