@@ -32,7 +32,8 @@ Future Improvements:
 - Hyperparameter tuning
 - Additional feature selection
 
-Visualisations
+## VISUALIZATIONS
+
 ## Missing Values
 
 ![Missing Values](images/Missing_values_plot_pattern.png)
