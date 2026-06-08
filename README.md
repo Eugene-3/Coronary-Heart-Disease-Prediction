@@ -1,4 +1,33 @@
-The framingham heart study dataset from Kaggle was utilised to compare six machine learning algorithms for the prediction of coronary heart disease.
-The six models were built by using 70% of the preprocessed dataset.
-30% of the dataset was used to test the models.
-Random Forest produced the highest prediction accuracy of 85.25%.
+Coronary Heart Disease Prediction Using Machine Learning
+
+Project Overview
+This project compares six machine learning algorithms for predicting coronary heart disease using the Framingham dataset.
+
+Business Problem
+Early prediction of heart disease can help healthcare providers identify at-risk patients.
+
+Dataset
+Framingham Heart Study Dataset
+
+Tools Used
+- R
+- Random Forest
+- Logistic Regression
+- Decision Tree
+- Naive Bayes
+- Support Vector Machines
+- K-Nearest Neighbours
+- Data Visualization
+
+Methodology
+1. Data cleaning
+2. Feature engineering
+3. Model training
+4. Model evaluation
+
+Results
+Random Forest achieved 85.25% accuracy.
+
+Future Improvements
+- Hyperparameter tuning
+- Additional feature selection
