@@ -50,5 +50,9 @@ Future Improvements:
 
 ![ROC curves](images/ROC_curves.png)
 
+## Model Comparisons
+
+![Model Comparisons](images/Model_comparisons.png)
+
 
 
