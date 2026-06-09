@@ -11,12 +11,12 @@ Framingham Heart Study Dataset
 
 Tools Used:
 - R
-- Random Forest
-- Logistic Regression
-- Decision Tree
-- Naive Bayes
-- Support Vector Machines
-- K-Nearest Neighbours
+- Random Forest (RF)
+- Logistic Regression (LR)
+- Decision Tree (DT)
+- Naive Bayes (NB)
+- Support Vector Machines (SVM)
+- K-Nearest Neighbours (KNN)
 - Data Visualization
 
 Methodology:
